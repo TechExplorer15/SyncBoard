@@ -10,6 +10,7 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler');
 const { RATE_LIMIT } = require('./utils/constants');
+const authRoutes = require('./routes/auth.routes');
 
 /**
  * Creates and configures the Express application.
@@ -51,7 +52,8 @@ function createApp({ clientOrigin }) {
     });
   });
 
-  // --- Routes (added in Phase 2 & 3) ---
+  // --- Routes ---
+  app.use('/api/auth', authRoutes);
 
   // --- 404 handler ---
   app.use((_req, res) => {
