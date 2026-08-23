@@ -4,11 +4,15 @@
  */
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer, { selectAccessToken, refreshToken } from './slices/authSlice';
+import workspaceReducer from './slices/workspaceSlice';
+import boardReducer from './slices/boardSlice';
 import { setTokenAccessor, setTokenRefresher } from '../lib/axios';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    workspace: workspaceReducer,
+    board: boardReducer,
   },
 });
 

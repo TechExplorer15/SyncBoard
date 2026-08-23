@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Login';
 import Register from './Register';
 import Dashboard from './Dashboard';
+import WorkspaceView from './WorkspaceView';
+import BoardView from './BoardView';
 import ProtectedRoute from '../components/layout/ProtectedRoute';
 
 export default function AppRoutes() {
@@ -20,6 +22,8 @@ export default function AppRoutes() {
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/w/:workspaceId" element={<WorkspaceView />} />
+          <Route path="/b/:boardId" element={<BoardView />} />
         </Route>
 
         {/* Catch-all */}
