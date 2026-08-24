@@ -27,11 +27,11 @@ const REDIS_KEYS = Object.freeze({
   PRESENCE_BOARD: 'presence:board:',
 });
 
-/** Presence TTL in seconds */
-const PRESENCE_TTL_SECONDS = 30;
+/** Presence TTL in seconds (increased to minimize Redis load) */
+const PRESENCE_TTL_SECONDS = 120;
 
-/** Heartbeat interval expected from clients (ms) */
-const HEARTBEAT_INTERVAL_MS = 15000;
+/** Heartbeat interval expected from clients (ms) (increased to minimize Redis load) */
+const HEARTBEAT_INTERVAL_MS = 60000;
 
 /** Rate limiting */
 const RATE_LIMIT = Object.freeze({

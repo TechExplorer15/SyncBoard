@@ -54,11 +54,11 @@ function initSocket(httpServer) {
     socket.on('join_board', async (boardId) => {
       socket.join(`board:${boardId}`);
       logger.debug('Socket joined board room', { socketId: socket.id, userId, boardId });
-      await recordHeartbeat(boardId, userId);
+      await recordHeartbeat(boardId, userId, true);
     });
 
     socket.on('heartbeat', async (boardId) => {
-      await recordHeartbeat(boardId, userId);
+      await recordHeartbeat(boardId, userId, false);
     });
 
     socket.on('leave_board', async (boardId) => {

@@ -11,23 +11,24 @@ const logger = require('../utils/logger');
  * Records a heartbeat for a user on a board.
  * Uses a Redis Sorted Set where score = timestamp.
  */
-async function recordHeartbeat(boardId, userId) {
+async function recordHeartbeat(boardId, userId, isJoin = false) {
   try {
     const redis = getPubClient();
     const key = `${REDIS_KEYS.PRESENCE_BOARD}${boardId}`;
     const now = Date.now();
     
-    // Add or update the user's heartbeat timestamp
+    // Add or update the user's heartbeat timestamp (1 Redis command)
     await redis.zadd(key, now, userId);
     
-    // Expire the whole set after TTL just in case it gets abandoned
-    await redis.expire(key, PRESENCE_TTL_SECONDS);
+    if (isJoin) {
+      // Safety net: expire the whole set after 24h to prevent memory leaks if server crashes
+      // (We don't need to do this on every heartbeat!)
+      await redis.expire(key, 86400);
 
-    // After updating heartbeat, optionally broadcast.
-    // For efficiency, we shouldn't broadcast on every single heartbeat if it's just a refresh,
-    // but we can broadcast if it's a new join, or we can just broadcast and let the client deduplicate.
-    // Let's broadcast the fresh list of users.
-    await broadcastPresence(boardId);
+      // Only prune and broadcast to the room when someone explicitly joins.
+      // Routine heartbeats simply keep the timestamp fresh without blasting Redis/WebSockets.
+      await broadcastPresence(boardId);
+    }
   } catch (error) {
     logger.error('Failed to record heartbeat', { error: error.message, boardId, userId });
   }

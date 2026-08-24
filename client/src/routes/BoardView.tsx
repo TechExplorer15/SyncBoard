@@ -28,10 +28,10 @@ export default function BoardView() {
       dispatch(fetchBoard(boardId));
       joinBoardRoom(boardId);
       
-      // Start heartbeat for presence
+      // Start heartbeat for presence (reduced frequency to minimize Redis usage)
       intervalId = setInterval(() => {
         sendHeartbeat(boardId);
-      }, 15000);
+      }, 60000);
     }
     
     return () => {
