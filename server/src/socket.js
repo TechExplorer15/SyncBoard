@@ -49,15 +49,32 @@ function initSocket(httpServer) {
     const userId = socket.data.user.userId;
     logger.info('Socket connected', { socketId: socket.id, userId });
 
-    socket.on('join_board', (boardId) => {
-      // NOTE: Normally we'd do a quick DB check here or trust the client + RBAC.
+    const { recordHeartbeat, removeUser } = require('./services/presence.service');
+
+    socket.on('join_board', async (boardId) => {
       socket.join(`board:${boardId}`);
       logger.debug('Socket joined board room', { socketId: socket.id, userId, boardId });
+      await recordHeartbeat(boardId, userId);
     });
 
-    socket.on('leave_board', (boardId) => {
+    socket.on('heartbeat', async (boardId) => {
+      await recordHeartbeat(boardId, userId);
+    });
+
+    socket.on('leave_board', async (boardId) => {
       socket.leave(`board:${boardId}`);
       logger.debug('Socket left board room', { socketId: socket.id, userId, boardId });
+      await removeUser(boardId, userId);
+    });
+
+    socket.on('disconnecting', async () => {
+      // socket.rooms contains the rooms the socket is currently in
+      for (const room of socket.rooms) {
+        if (room.startsWith('board:')) {
+          const boardId = room.split(':')[1];
+          await removeUser(boardId, userId);
+        }
+      }
     });
 
     socket.on('disconnect', () => {

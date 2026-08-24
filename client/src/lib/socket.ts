@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { store } from '../store';
 import { 
   cardCreated, cardUpdated, cardMoved, cardDeleted,
-  listCreated, listDeleted
+  listCreated, listDeleted, presenceUpdated
 } from '../store/slices/boardSlice';
 
 // Make sure to use correct URL (default to localhost:5000 in dev)
@@ -50,6 +50,10 @@ export const connectSocket = (token: string) => {
     store.dispatch(listDeleted(payload));
   });
 
+  socket.on('presence_updated', (activeUsers) => {
+    store.dispatch(presenceUpdated(activeUsers));
+  });
+
   return socket;
 };
 
@@ -69,5 +73,11 @@ export const joinBoardRoom = (boardId: string) => {
 export const leaveBoardRoom = (boardId: string) => {
   if (socket) {
     socket.emit('leave_board', boardId);
+  }
+};
+
+export const sendHeartbeat = (boardId: string) => {
+  if (socket) {
+    socket.emit('heartbeat', boardId);
   }
 };

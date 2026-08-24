@@ -2,12 +2,13 @@
  * Board Redux Slice
  */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { Board } from '../../types';
+import { Board, ActiveUser } from '../../types';
 import api from '../../lib/axios';
 
 interface BoardState {
   boards: Board[];
   activeBoard: Board | null;
+  activeUsers: ActiveUser[];
   isLoading: boolean;
   error: string | null;
 }
@@ -15,6 +16,7 @@ interface BoardState {
 const initialState: BoardState = {
   boards: [],
   activeBoard: null,
+  activeUsers: [],
   isLoading: false,
   error: null,
 };
@@ -88,6 +90,7 @@ const boardSlice = createSlice({
     },
     clearActiveBoard: (state) => {
       state.activeBoard = null;
+      state.activeUsers = [];
     },
     // Real-time Event Reducers
     listCreated: (state, action) => {
@@ -153,6 +156,9 @@ const boardSlice = createSlice({
           list.cards = list.cards.filter(c => c._id !== action.payload.cardId);
         }
       }
+    },
+    presenceUpdated: (state, action) => {
+      state.activeUsers = action.payload;
     }
   },
   extraReducers: (builder) => {
@@ -229,6 +235,7 @@ export const {
   cardCreated,
   cardUpdated,
   cardMoved,
-  cardDeleted
+  cardDeleted,
+  presenceUpdated
 } = boardSlice.actions;
 export default boardSlice.reducer;

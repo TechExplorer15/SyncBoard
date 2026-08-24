@@ -6,14 +6,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/store';
 import { fetchBoard, createList, createCard, clearActiveBoard } from '../store/slices/boardSlice';
 import Navbar from '../components/layout/Navbar';
-import { joinBoardRoom, leaveBoardRoom } from '../lib/socket';
+import { joinBoardRoom, leaveBoardRoom, sendHeartbeat } from '../lib/socket';
 
 export default function BoardView() {
   const { boardId } = useParams<{ boardId: string }>();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   
-  const { activeBoard, isLoading, error } = useAppSelector((state) => state.board);
+  const { activeBoard, activeUsers, isLoading, error } = useAppSelector((state) => state.board);
 
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListTitle, setNewListTitle] = useState('');
@@ -22,14 +22,25 @@ export default function BoardView() {
   const [newCardTitle, setNewCardTitle] = useState('');
 
   useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval>;
+    
     if (boardId) {
       dispatch(fetchBoard(boardId));
       joinBoardRoom(boardId);
+      
+      // Start heartbeat for presence
+      intervalId = setInterval(() => {
+        sendHeartbeat(boardId);
+      }, 15000);
     }
+    
     return () => {
       dispatch(clearActiveBoard());
       if (boardId) {
         leaveBoardRoom(boardId);
+      }
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
   }, [dispatch, boardId]);
@@ -85,14 +96,34 @@ export default function BoardView() {
       <Navbar />
       
       {/* Board Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0 flex items-center">
-        <button 
-          onClick={() => navigate(`/w/${activeBoard.workspaceId}`)} 
-          className="text-gray-500 hover:text-gray-700 mr-4"
-        >
-          &larr; Back
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900">{activeBoard.title}</h1>
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0 flex items-center justify-between">
+        <div className="flex items-center">
+          <button 
+            onClick={() => navigate(`/w/${activeBoard.workspaceId}`)} 
+            className="text-gray-500 hover:text-gray-700 mr-4"
+          >
+            &larr; Back
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">{activeBoard.title}</h1>
+        </div>
+        
+        {/* Presence Avatars */}
+        <div className="flex items-center -space-x-2">
+          {activeUsers?.map((user) => (
+            <div 
+              key={user.userId} 
+              title={user.name}
+              className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold border-2 border-white shadow-sm"
+            >
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+          ))}
+          {activeUsers?.length > 0 && (
+            <div className="ml-4 text-xs text-gray-500">
+              {activeUsers.length} online
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Kanban Canvas */}

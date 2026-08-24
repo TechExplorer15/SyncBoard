@@ -91,3 +91,10 @@ export interface Workspace {
   members: WorkspaceMember[];
   createdAt: string;
 }
+
+/** Real-time Presence */
+export interface ActiveUser {
+  userId: string;
+  name: string;
+  email: string;
+}
