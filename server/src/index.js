@@ -22,8 +22,12 @@ async function main() {
   // Create Express app
   const app = createApp({ clientOrigin: env.CLIENT_ORIGIN });
 
-  // Create HTTP server (Socket.io will attach to this in Phase 4)
+  // Create HTTP server
   const server = http.createServer(app);
+
+  // Initialize Socket.io
+  const { initSocket } = require('./socket');
+  initSocket(server);
 
   // Start listening
   const PORT = parseInt(env.PORT, 10);

@@ -88,6 +88,71 @@ const boardSlice = createSlice({
     },
     clearActiveBoard: (state) => {
       state.activeBoard = null;
+    },
+    // Real-time Event Reducers
+    listCreated: (state, action) => {
+      if (state.activeBoard && state.activeBoard._id === action.payload.boardId) {
+        // Prevent duplicates
+        const exists = state.activeBoard.lists.find(l => l._id === action.payload._id);
+        if (!exists) {
+          state.activeBoard.lists.push({ ...action.payload, cards: [] });
+        }
+      }
+    },
+    listDeleted: (state, action) => {
+      if (state.activeBoard && state.activeBoard._id === action.payload.boardId) {
+        state.activeBoard.lists = state.activeBoard.lists.filter(l => l._id !== action.payload.listId);
+      }
+    },
+    cardCreated: (state, action) => {
+      if (state.activeBoard && state.activeBoard._id === action.payload.boardId) {
+        const list = state.activeBoard.lists.find(l => l._id === action.payload.listId);
+        if (list) {
+          const exists = list.cards.find(c => c._id === action.payload._id);
+          if (!exists) list.cards.push(action.payload);
+        }
+      }
+    },
+    cardUpdated: (state, action) => {
+      if (state.activeBoard && state.activeBoard._id === action.payload.boardId) {
+        const list = state.activeBoard.lists.find(l => l._id === action.payload.listId);
+        if (list) {
+          const cardIndex = list.cards.findIndex(c => c._id === action.payload._id);
+          if (cardIndex !== -1) {
+            list.cards[cardIndex] = { ...list.cards[cardIndex], ...action.payload };
+          }
+        }
+      }
+    },
+    cardMoved: (state, action) => {
+      if (state.activeBoard && state.activeBoard._id === action.payload.boardId) {
+        // Remove from old list
+        for (const list of state.activeBoard.lists) {
+          const idx = list.cards.findIndex(c => c._id === action.payload._id);
+          if (idx !== -1) {
+            list.cards.splice(idx, 1);
+            break;
+          }
+        }
+        
+        // Add to new list and sort by order
+        const targetList = state.activeBoard.lists.find(l => l._id === action.payload.listId);
+        if (targetList) {
+          targetList.cards.push(action.payload);
+          targetList.cards.sort((a, b) => {
+            if (a.order === b.order) return a._id.localeCompare(b._id);
+            return a.order.localeCompare(b.order);
+          });
+        }
+      }
+    },
+    cardDeleted: (state, action) => {
+      if (state.activeBoard && state.activeBoard._id === action.payload.boardId) {
+        const list = state.activeBoard.lists.find(l => l._id === action.payload.listId);
+        if (list) {
+          list.cards = list.cards.filter(c => c._id !== action.payload.cardId);
+        }
+      }
     }
   },
   extraReducers: (builder) => {
@@ -156,5 +221,14 @@ const boardSlice = createSlice({
   },
 });
 
-export const { clearBoardError, clearActiveBoard } = boardSlice.actions;
+export const { 
+  clearBoardError, 
+  clearActiveBoard,
+  listCreated,
+  listDeleted,
+  cardCreated,
+  cardUpdated,
+  cardMoved,
+  cardDeleted
+} = boardSlice.actions;
 export default boardSlice.reducer;

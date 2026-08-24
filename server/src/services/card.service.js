@@ -13,6 +13,8 @@ const { generateKeyBetween, generateNKeysBetween } = require('fractional-indexin
 const { REBALANCE_KEY_LENGTH } = require('../utils/constants');
 const logger = require('../utils/logger');
 
+const { emitToBoard } = require('../utils/emitter');
+
 /**
  * Creates a card at the end of a list.
  * @param {{ boardId: string, listId: string, title: string, description?: string }} data
@@ -37,6 +39,8 @@ async function createCard({ boardId, listId, title, description = '' }) {
 
   const card = await Card.create({ boardId, listId, title, description, order });
   logger.info('Card created', { cardId: card._id, listId, boardId });
+  
+  emitToBoard(boardId, 'card_created', card);
   return card;
 }
 
@@ -78,6 +82,8 @@ async function moveCard(cardId, { targetListId, prevOrder, nextOrder }) {
     newOrder,
   });
 
+  emitToBoard(card.boardId.toString(), 'card_moved', card);
+
   // Check if rebalancing is needed
   if (newOrder.length > REBALANCE_KEY_LENGTH) {
     // Fire-and-forget rebalance (don't block the response)
@@ -107,6 +113,8 @@ async function updateCard(cardId, data) {
     error.code = 'NOT_FOUND';
     throw error;
   }
+  
+  emitToBoard(card.boardId.toString(), 'card_updated', card);
   return card;
 }
 
@@ -124,6 +132,12 @@ async function deleteCard(cardId) {
     throw error;
   }
   logger.info('Card deleted', { cardId });
+  
+  emitToBoard(card.boardId.toString(), 'card_deleted', { 
+    cardId: card._id, 
+    listId: card.listId, 
+    boardId: card.boardId 
+  });
 }
 
 /**

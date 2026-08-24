@@ -6,6 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/store';
 import { fetchBoard, createList, createCard, clearActiveBoard } from '../store/slices/boardSlice';
 import Navbar from '../components/layout/Navbar';
+import { joinBoardRoom, leaveBoardRoom } from '../lib/socket';
 
 export default function BoardView() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -23,9 +24,13 @@ export default function BoardView() {
   useEffect(() => {
     if (boardId) {
       dispatch(fetchBoard(boardId));
+      joinBoardRoom(boardId);
     }
     return () => {
       dispatch(clearActiveBoard());
+      if (boardId) {
+        leaveBoardRoom(boardId);
+      }
     };
   }, [dispatch, boardId]);
 

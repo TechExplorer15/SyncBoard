@@ -5,9 +5,10 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { connectSocket, disconnectSocket } from '../../lib/socket';
 
 export default function ProtectedRoute() {
-  const { isAuthenticated, isLoading, refresh } = useAuth();
+  const { isAuthenticated, isLoading, refresh, accessToken } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
@@ -19,6 +20,20 @@ export default function ProtectedRoute() {
       setIsChecking(false);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let connected = false;
+    if (isAuthenticated && accessToken) {
+      connectSocket(accessToken);
+      connected = true;
+    }
+    
+    return () => {
+      if (connected) {
+        disconnectSocket();
+      }
+    };
+  }, [isAuthenticated, accessToken]);
 
   if (isChecking || isLoading) {
     return (
