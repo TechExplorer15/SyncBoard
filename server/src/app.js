@@ -25,6 +25,9 @@ const cardRoutes = require('./routes/card.routes');
 function createApp({ clientOrigin }) {
   const app = express();
 
+  // Trust first proxy to ensure rate limiting works behind load balancers (Heroku, Render, AWS, etc)
+  app.set('trust proxy', 1);
+
   // --- Security ---
   app.use(helmet());
   app.use(cors({

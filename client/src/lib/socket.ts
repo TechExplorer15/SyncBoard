@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { store } from '../store';
 import { 
   cardCreated, cardUpdated, cardMoved, cardDeleted,
-  listCreated, listDeleted, presenceUpdated
+  listCreated, listDeleted, presenceUpdated, fetchBoard
 } from '../store/slices/boardSlice';
 
 // Make sure to use correct URL (default to localhost:5000 in dev)
@@ -52,6 +52,13 @@ export const connectSocket = (token: string) => {
 
   socket.on('presence_updated', (activeUsers) => {
     store.dispatch(presenceUpdated(activeUsers));
+  });
+
+  socket.on('board_force_refresh', () => {
+    const activeBoardId = store.getState().board.activeBoard?._id;
+    if (activeBoardId) {
+      store.dispatch(fetchBoard(activeBoardId) as any);
+    }
   });
 
   return socket;

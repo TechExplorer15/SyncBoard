@@ -162,6 +162,9 @@ async function rebalanceList(boardId, listId) {
 
   await Card.bulkWrite(bulkOps);
   logger.info('List rebalanced', { listId, cardCount: cards.length });
+  
+  // Force clients to refetch the board so they get the fresh fractional keys
+  emitToBoard(boardId, 'board_force_refresh', { listId });
 }
 
 module.exports = { createCard, moveCard, updateCard, deleteCard, rebalanceList };

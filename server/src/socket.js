@@ -50,21 +50,46 @@ function initSocket(httpServer) {
     logger.info('Socket connected', { socketId: socket.id, userId });
 
     const { recordHeartbeat, removeUser } = require('./services/presence.service');
+    const Board = require('./models/Board');
+    const Workspace = require('./models/Workspace');
 
     socket.on('join_board', async (boardId) => {
-      socket.join(`board:${boardId}`);
-      logger.debug('Socket joined board room', { socketId: socket.id, userId, boardId });
-      await recordHeartbeat(boardId, userId, true);
+      try {
+        // SECURITY FIX: Prevent IDOR. Ensure the user is actually a member of the workspace that owns this board.
+        const board = await Board.findById(boardId).select('workspaceId').lean();
+        if (!board) return; // Ignore invalid boards
+
+        const workspace = await Workspace.exists({
+          _id: board.workspaceId,
+          'members.userId': userId
+        });
+
+        if (!workspace) {
+          logger.warn('Unauthorized board join attempt', { socketId: socket.id, userId, boardId });
+          return;
+        }
+
+        socket.join(`board:${boardId}`);
+        logger.debug('Socket joined board room', { socketId: socket.id, userId, boardId });
+        await recordHeartbeat(boardId, userId, true);
+      } catch (err) {
+        logger.error('Error during board join', { error: err.message, userId, boardId });
+      }
     });
 
     socket.on('heartbeat', async (boardId) => {
-      await recordHeartbeat(boardId, userId, false);
+      // SECURITY FIX: Only allow heartbeat if they are actually in the room
+      if (socket.rooms.has(`board:${boardId}`)) {
+        await recordHeartbeat(boardId, userId, false);
+      }
     });
 
     socket.on('leave_board', async (boardId) => {
-      socket.leave(`board:${boardId}`);
-      logger.debug('Socket left board room', { socketId: socket.id, userId, boardId });
-      await removeUser(boardId, userId);
+      if (socket.rooms.has(`board:${boardId}`)) {
+        socket.leave(`board:${boardId}`);
+        logger.debug('Socket left board room', { socketId: socket.id, userId, boardId });
+        await removeUser(boardId, userId);
+      }
     });
 
     socket.on('disconnecting', async () => {
