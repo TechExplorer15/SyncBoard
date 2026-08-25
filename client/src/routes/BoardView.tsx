@@ -3,8 +3,17 @@
  */
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { generateKeyBetween } from 'fractional-indexing';
 import { useAppDispatch, useAppSelector } from '../hooks/store';
-import { fetchBoard, createList, createCard, clearActiveBoard } from '../store/slices/boardSlice';
+import { 
+  fetchBoard, 
+  createList, 
+  createCard, 
+  clearActiveBoard, 
+  cardMoved,
+  moveCardThunk 
+} from '../store/slices/boardSlice';
 import Navbar from '../components/layout/Navbar';
 import { joinBoardRoom, leaveBoardRoom, sendHeartbeat } from '../lib/socket';
 
@@ -61,6 +70,70 @@ export default function BoardView() {
     await dispatch(createCard({ boardId, listId, title: newCardTitle }));
     setNewCardTitle('');
     setAddingCardToList(null);
+  };
+
+  const handleDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination || !activeBoard || !boardId) return;
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const sourceList = activeBoard.lists.find(l => l._id === source.droppableId);
+    const targetList = activeBoard.lists.find(l => l._id === destination.droppableId);
+    if (!sourceList || !targetList) return;
+
+    const cardToMove = sourceList.cards.find(c => c._id === draggableId);
+    if (!cardToMove) return;
+
+    // Calculate new fractional-indexing order
+    const targetCards = [...targetList.cards];
+    if (source.droppableId === destination.droppableId) {
+      targetCards.splice(source.index, 1);
+    }
+    
+    const prevCard = destination.index > 0 ? targetCards[destination.index - 1] : null;
+    const nextCard = destination.index < targetCards.length ? targetCards[destination.index] : null;
+
+    const prevOrder = prevCard ? prevCard.order : null;
+    const nextOrder = nextCard ? nextCard.order : null;
+
+    let newOrder;
+    try {
+      newOrder = generateKeyBetween(prevOrder, nextOrder);
+    } catch (e) {
+      console.error('Failed to generate key', e);
+      return;
+    }
+
+    // Optimistic UI Update (dispatches instantly)
+    const optimisticCard = {
+      ...cardToMove,
+      listId: targetList._id,
+      order: newOrder,
+    };
+    dispatch(cardMoved(optimisticCard));
+
+    // Server API Call
+    try {
+      await dispatch(moveCardThunk({
+        boardId,
+        listId: sourceList._id,
+        cardId: cardToMove._id,
+        targetListId: targetList._id,
+        prevOrder,
+        nextOrder
+      })).unwrap();
+    } catch (err) {
+      console.error('Failed to move card on server', err);
+      // Revert optimism if it failed
+      dispatch(fetchBoard(boardId));
+    }
   };
 
   if (isLoading && !activeBoard) {
@@ -127,110 +200,131 @@ export default function BoardView() {
       </div>
 
       {/* Kanban Canvas */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden p-6 flex items-start space-x-6">
-        
-        {/* Render Lists */}
-        {activeBoard.lists?.map((list) => (
-          <div key={list._id} className="w-80 bg-gray-100 rounded-xl flex flex-col flex-shrink-0 max-h-full">
-            <div className="p-4 flex-shrink-0">
-              <h3 className="font-semibold text-gray-900">{list.title}</h3>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
-              {list.cards?.map((card) => (
-                <div key={card._id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                  <p className="text-sm text-gray-900">{card.title}</p>
-                </div>
-              ))}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <main className="flex-1 overflow-x-auto overflow-y-hidden p-6 flex items-start space-x-6">
+          
+          {/* Render Lists */}
+          {activeBoard.lists?.map((list) => (
+            <div key={list._id} className="w-80 bg-gray-100 rounded-xl flex flex-col flex-shrink-0 max-h-full">
+              <div className="p-4 flex-shrink-0">
+                <h3 className="font-semibold text-gray-900">{list.title}</h3>
+              </div>
               
-              {/* Add Card Input */}
-              {addingCardToList === list._id ? (
-                <form onSubmit={(e) => handleCreateCard(e, list._id)} className="mt-3">
-                  <textarea
-                    value={newCardTitle}
-                    onChange={(e) => setNewCardTitle(e.target.value)}
-                    placeholder="Enter card title..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
-                    rows={3}
+              <Droppable droppableId={list._id}>
+                {(provided) => (
+                  <div 
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="flex-1 overflow-y-auto px-4 space-y-3 pb-4 min-h-[10px]"
+                  >
+                    {list.cards?.map((card, index) => (
+                      <Draggable key={card._id} draggableId={card._id} index={index}>
+                        {(provided, snapshot) => (
+                          <div 
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`bg-white p-4 rounded-lg shadow-sm border border-gray-200 ${snapshot.isDragging ? 'shadow-lg ring-2 ring-indigo-500' : ''}`}
+                            style={{ ...provided.draggableProps.style }}
+                          >
+                            <p className="text-sm text-gray-900">{card.title}</p>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    
+                    {/* Add Card Input */}
+                    {addingCardToList === list._id ? (
+                      <form onSubmit={(e) => handleCreateCard(e, list._id)} className="mt-3">
+                        <textarea
+                          value={newCardTitle}
+                          onChange={(e) => setNewCardTitle(e.target.value)}
+                          placeholder="Enter card title..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
+                          rows={3}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleCreateCard(e as any, list._id);
+                            }
+                          }}
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            type="submit"
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                          >
+                            Add Card
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAddingCardToList(null)}
+                            className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setAddingCardToList(list._id);
+                          setNewCardTitle('');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors flex items-center mt-2"
+                      >
+                        <span className="mr-1 text-lg">+</span> Add a card
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          ))}
+
+          {/* Add List Column */}
+          <div className="w-80 flex-shrink-0">
+            {isAddingList ? (
+              <div className="bg-gray-100 p-4 rounded-xl">
+                <form onSubmit={handleCreateList}>
+                  <input
+                    type="text"
+                    value={newListTitle}
+                    onChange={(e) => setNewListTitle(e.target.value)}
+                    placeholder="Enter list title..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
                     autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleCreateCard(e as any, list._id);
-                      }
-                    }}
                   />
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
                     >
-                      Add Card
+                      Add List
                     </button>
                     <button
                       type="button"
-                      onClick={() => setAddingCardToList(null)}
-                      className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
+                      onClick={() => setIsAddingList(false)}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
                     >
                       Cancel
                     </button>
                   </div>
                 </form>
-              ) : (
-                <button
-                  onClick={() => {
-                    setAddingCardToList(list._id);
-                    setNewCardTitle('');
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors flex items-center"
-                >
-                  <span className="mr-1 text-lg">+</span> Add a card
-                </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAddingList(true)}
+                className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium p-4 rounded-xl transition-colors text-left flex items-center"
+              >
+                <span className="mr-2 text-xl">+</span> Add another list
+              </button>
+            )}
           </div>
-        ))}
-
-        {/* Add List Column */}
-        <div className="w-80 flex-shrink-0">
-          {isAddingList ? (
-            <div className="bg-gray-100 p-4 rounded-xl">
-              <form onSubmit={handleCreateList}>
-                <input
-                  type="text"
-                  value={newListTitle}
-                  onChange={(e) => setNewListTitle(e.target.value)}
-                  placeholder="Enter list title..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
-                  >
-                    Add List
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingList(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsAddingList(true)}
-              className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium p-4 rounded-xl transition-colors text-left flex items-center"
-            >
-              <span className="mr-2 text-xl">+</span> Add another list
-            </button>
-          )}
-        </div>
-      </main>
+        </main>
+      </DragDropContext>
     </div>
   );
 }

@@ -81,6 +81,22 @@ export const createCard = createAsyncThunk(
   }
 );
 
+export const moveCardThunk = createAsyncThunk(
+  'board/moveCard',
+  async ({ boardId, listId, cardId, targetListId, prevOrder, nextOrder }: { 
+    boardId: string; listId: string; cardId: string; targetListId: string; prevOrder: string | null; nextOrder: string | null;
+  }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/boards/${boardId}/lists/${listId}/cards/${cardId}/move`, {
+        targetListId, prevOrder, nextOrder
+      });
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || { error: 'Failed to move card' });
+    }
+  }
+);
+
 const boardSlice = createSlice({
   name: 'board',
   initialState,
