@@ -12,12 +12,12 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Don't show solid border if we are on dashboard (hero section has its own border)
-  const isDashboard = location.pathname === '/';
+  const isDashboard = location.pathname === '/dashboard';
 
   return (
     <nav className={`bg-white sticky top-0 z-50 ${isDashboard ? '' : 'border-b border-gray-200/60'}`}>
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 group">
+        <Link to="/dashboard" className="flex items-center gap-2 group">
           <div className="h-8 w-8 bg-gradient-to-tr from-brand-600 to-indigo-500 rounded-lg flex items-center justify-center shadow-sm shadow-brand-500/20 group-hover:shadow-brand-500/40 transition-shadow">
             <span className="text-white font-bold text-sm tracking-tighter">S</span>
           </div>

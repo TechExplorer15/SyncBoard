@@ -20,7 +20,7 @@ export default function Register() {
     clearError();
     const result = await register({ name, email, password });
     if (result.meta.requestStatus === 'fulfilled') {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }
 

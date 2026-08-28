@@ -19,7 +19,7 @@ export default function Login() {
     clearError();
     const result = await login({ email, password });
     if (result.meta.requestStatus === 'fulfilled') {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }
 
