@@ -3,6 +3,7 @@
  * Uses Zod to validate all required env vars at startup.
  * Fail-fast: if a required var is missing, the process exits with a clear error.
  */
+require('dotenv').config();
 const { z } = require('zod');
 const logger = require('../utils/logger');
 

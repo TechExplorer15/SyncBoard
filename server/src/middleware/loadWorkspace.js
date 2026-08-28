@@ -26,13 +26,31 @@ function loadWorkspace(options = {}) {
     idParam = 'workspaceId',
     fromBoard = false,
     boardParam = 'boardId',
+    fromCard = false,
+    cardParam = 'cardId',
   } = options;
 
   return async (req, res, next) => {
     try {
       let workspaceId;
 
-      if (fromBoard) {
+      if (fromCard) {
+        // Derive workspace from card -> board -> workspace
+        const cardId = req.params[cardParam] || req.params.id;
+        const Card = require('../models/Card');
+        const card = await Card.findById(cardId);
+        if (!card) {
+          return res.status(404).json({ error: 'Card not found', code: 'NOT_FOUND' });
+        }
+        
+        const board = await Board.findById(card.boardId);
+        if (!board) {
+          return res.status(404).json({ error: 'Board not found', code: 'NOT_FOUND' });
+        }
+        workspaceId = board.workspaceId;
+        req.card = card;
+        req.board = board;
+      } else if (fromBoard) {
         // Derive workspace from board
         const boardId = req.params[boardParam] || req.params.id;
         const board = await Board.findById(boardId);

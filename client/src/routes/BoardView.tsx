@@ -12,9 +12,12 @@ import {
   createCard, 
   clearActiveBoard, 
   cardMoved,
-  moveCardThunk 
+  moveCardThunk,
+  openCardModal
 } from '../store/slices/boardSlice';
 import Navbar from '../components/layout/Navbar';
+import { AlignLeft } from 'lucide-react';
+import CardModal from '../components/board/CardModal';
 import { joinBoardRoom, leaveBoardRoom, sendHeartbeat } from '../lib/socket';
 
 export default function BoardView() {
@@ -122,12 +125,10 @@ export default function BoardView() {
     // Server API Call
     try {
       await dispatch(moveCardThunk({
-        boardId,
-        listId: sourceList._id,
-        cardId: cardToMove._id,
-        targetListId: targetList._id,
+        cardId: draggableId,
+        targetListId: destination.droppableId,
         prevOrder,
-        nextOrder
+        nextOrder,
       })).unwrap();
     } catch (err) {
       console.error('Failed to move card on server', err);
@@ -235,12 +236,18 @@ export default function BoardView() {
                             {...provided.dragHandleProps}
                             className={`
                               bg-white p-4 rounded-xl border border-gray-200 shadow-sm
-                              hover:border-brand-500/30 hover:shadow-md transition-all duration-200
+                              hover:border-brand-500/30 hover:shadow-md transition-all duration-200 cursor-pointer
                               ${snapshot.isDragging ? 'shadow-xl ring-2 ring-brand-500 rotate-2 scale-105 opacity-90' : ''}
                             `}
                             style={{ ...provided.draggableProps.style }}
+                            onClick={() => dispatch(openCardModal(card._id))}
                           >
-                            <p className="text-sm font-medium text-gray-900">{card.title}</p>
+                            <p className="text-sm font-medium text-gray-900 mb-1">{card.title}</p>
+                            {card.description && (
+                              <div className="flex items-center text-gray-400 mt-2">
+                                <AlignLeft size={14} />
+                              </div>
+                            )}
                           </div>
                         )}
                       </Draggable>
@@ -338,6 +345,7 @@ export default function BoardView() {
           </div>
         </main>
       </DragDropContext>
+      <CardModal />
     </div>
   );
 }

@@ -9,6 +9,7 @@ interface BoardState {
   boards: Board[];
   activeBoard: Board | null;
   activeUsers: ActiveUser[];
+  activeCardId: string | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -17,6 +18,7 @@ const initialState: BoardState = {
   boards: [],
   activeBoard: null,
   activeUsers: [],
+  activeCardId: null,
   isLoading: false,
   error: null,
 };
@@ -83,16 +85,40 @@ export const createCard = createAsyncThunk(
 
 export const moveCardThunk = createAsyncThunk(
   'board/moveCard',
-  async ({ boardId, listId, cardId, targetListId, prevOrder, nextOrder }: { 
-    boardId: string; listId: string; cardId: string; targetListId: string; prevOrder: string | null; nextOrder: string | null;
+  async ({ cardId, targetListId, prevOrder, nextOrder }: { 
+    cardId: string; targetListId: string; prevOrder: string | null; nextOrder: string | null;
   }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/api/boards/${boardId}/lists/${listId}/cards/${cardId}/move`, {
+      const response = await api.patch(`/api/cards/${cardId}/move`, {
         targetListId, prevOrder, nextOrder
       });
       return response.data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data || { error: 'Failed to move card' });
+    }
+  }
+);
+
+export const updateCardThunk = createAsyncThunk(
+  'board/updateCard',
+  async ({ cardId, title, description }: { cardId: string; title?: string; description?: string }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/api/cards/${cardId}`, { title, description });
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || { error: 'Failed to update card' });
+    }
+  }
+);
+
+export const deleteCardThunk = createAsyncThunk(
+  'board/deleteCard',
+  async (cardId: string, { rejectWithValue }) => {
+    try {
+      await api.delete(`/api/cards/${cardId}`);
+      return cardId;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || { error: 'Failed to delete card' });
     }
   }
 );
@@ -107,6 +133,13 @@ const boardSlice = createSlice({
     clearActiveBoard: (state) => {
       state.activeBoard = null;
       state.activeUsers = [];
+      state.activeCardId = null;
+    },
+    openCardModal: (state, action) => {
+      state.activeCardId = action.payload;
+    },
+    closeCardModal: (state) => {
+      state.activeCardId = null;
     },
     // Real-time Event Reducers
     listCreated: (state, action) => {
@@ -239,6 +272,13 @@ const boardSlice = createSlice({
             list.cards.push(action.payload);
           }
         }
+      })
+      
+      // Delete Card
+      .addCase(deleteCardThunk.fulfilled, (state, action) => {
+        if (state.activeCardId === action.payload) {
+          state.activeCardId = null;
+        }
       });
   },
 });
@@ -246,6 +286,8 @@ const boardSlice = createSlice({
 export const { 
   clearBoardError, 
   clearActiveBoard,
+  openCardModal,
+  closeCardModal,
   listCreated,
   listDeleted,
   cardCreated,
@@ -254,4 +296,5 @@ export const {
   cardDeleted,
   presenceUpdated
 } = boardSlice.actions;
+
 export default boardSlice.reducer;

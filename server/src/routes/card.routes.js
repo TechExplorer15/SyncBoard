@@ -31,14 +31,16 @@ router.post(
 // Update card (member+)
 router.patch(
   '/cards/:id',
-  // For card routes, we need the card to find the board to find the workspace.
-  // We'll use a lightweight approach: load card, get boardId, load workspace.
+  loadWorkspace({ fromCard: true, cardParam: 'id' }),
+  requireRole('member'),
   updateCardHandler
 );
 
 // Move card (member+)
 router.patch(
   '/cards/:id/move',
+  loadWorkspace({ fromCard: true, cardParam: 'id' }),
+  requireRole('member'),
   validate(moveCardSchema),
   moveCardHandler
 );
@@ -46,6 +48,8 @@ router.patch(
 // Delete card (member+)
 router.delete(
   '/cards/:id',
+  loadWorkspace({ fromCard: true, cardParam: 'id' }),
+  requireRole('member'),
   deleteCardHandler
 );
 
